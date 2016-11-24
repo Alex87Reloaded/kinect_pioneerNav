@@ -1,0 +1,42 @@
+ <launch>
+	<!--
+	<master auto="start"/>
+	-->
+    <!-- Run the kinect service -->
+    <include file="$(find freenect_launch)/launch/freenect.launch"/>
+
+    <!-- Run the pointcloud-laser transformation -->
+    <node name="depthimage_to_laserscan" pkg = "depthimage_to_laserscan" type = "depthimage_to_laserscan" args = "image:=/camera/depth/image_raw" />
+
+    <!-- Run Rosaria node -->
+    <node name="RosAria" pkg = "rosaria" type = "RosAria" args = "_port:=/dev/ttyUSB0" />
+
+    <!-- Run the kinect-pioneer frame transformation -->
+    <node name="static_transform_publisher" pkg="tf" type="static_transform_publisher" args="0.0 0.0 0.3 0.0 0.0 0.0 /base_link /camera_depth_frame 100" />
+
+    <!-- Run the map server (you can run it here or in another terminal) -->
+    <arg name="map_file" default="$(find kinect_pioneerNav)/maps/map.yaml"/>
+	<node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+    <!-- Run the RVIZ node -->
+    <node name="rviz" pkg="rviz" type="rviz" />
+
+	<!--- Run AMCL -->
+	<include file="$(find kinect_pioneerNav)/launch/amcl.launch"/>
+
+    <arg name="odom_topic" default="RosAria/pose"/>
+    <arg name="cmd_vel_topic" default="RosAria/cmd_vel"/>
+	    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+			<rosparam file="$(find kinect_pioneerNav)/params/costmap_common_params_p3dx.yaml" command="load" ns="global_costmap" />
+			<rosparam file="$(find kinect_pioneerNav)/params/costmap_common_params_p3dx.yaml" command="load" ns="local_costmap" />
+			<rosparam file="$(find kinect_pioneerNav)/params/local_costmap_params.yaml" command="load" />
+			<rosparam file="$(find kinect_pioneerNav)/params/global_costmap_params.yaml" command="load" />
+			<rosparam file="$(find kinect_pioneerNav)/params/base_local_planner_params.yaml" command="load" />
+			<param name="base_global_planner" type="string" value="navfn/NavfnROS" />
+                <!--param name="base_global_planner" value="rrtstar_planner/RRTStarPlanner"/> -->
+			<param name="conservative_reset_dist" type="double" value="3.0" />
+			<param name="controller_frequency" type="double" value="15.0" />
+			<remap from="/cmd_vel" to="$(arg cmd_vel_topic)"/>
+			<remap from="/odom" to="$(arg odom_topic)"/>
+		</node>
+</launch>
